@@ -74,6 +74,14 @@ WS_OPTIONS=-n ${WORDSUB} -s ${SEED}
 %.pairs.gz: %.sub.gz ## WS_NSUB=64: time=20m55s wc=75121024 150242048 809663253
 	perl -le 'print "$<" for 1..${WORDSUB}' | xargs zcat | grep -v '^</s>' | wordsub -s ${SEED} |gzip > $@
 
+### RPART options:[??del or comment out]
+RPART=2000 # Number of random partitions
+NTEST=8915
+RP_OPTIONS=-n ${NTEST} -p ${RPART} -s ${SEED}
+
+%.rpart.pairs.gz: %.knn.gz %.word.gz ## RPART=65536: time=2m55s wc=1173766 2347532 14694702
+	zcat $< | rpart.pl ${RP_OPTIONS} | join.pl $*.word.gz - | gzip > $@
+
 ### SCODE ###
 SC_OPTIONS=-r 1 -i 50 -d 25 -z 0.166 -p 50 -u 0.2 -s ${SEED} -v -e 1
 
@@ -81,6 +89,9 @@ SC_OPTIONS=-r 1 -i 50 -d 25 -z 0.166 -p 50 -u 0.2 -s ${SEED} -v -e 1
 	zcat $< | scode ${SC_OPTIONS} | gzip > $@
 
 KM_OPTIONS=-k 200 -r 50 -s ${SEED} -v
+
+%.kmeans.gz: %.yscode.gz	
+	zcat $< | perl -lane 'print join("\t",@F[0 .. 24])' | wkmeans ${KM_OPTIONS} | gzip > $@
 
 %.xykmeans.gz: %.yscode.gz
 	zcat $< | wkmeans ${KM_OPTIONS} | gzip > $@
@@ -103,4 +114,4 @@ KM_OPTIONS=-k 200 -r 50 -s ${SEED} -v
 clean:
 	-rm test.tok.gz test.ngram.gz test.gold.gz test.word.gz test.sub.gz *ans *~
 
-.PRECIOUS: %.ans test.c%.kmeans.gz %.xykmeans.gz %.ykmeans.gz %.ans
+.PRECIOUS: %.ans test.c%.kmeans.gz %.xykmeans.gz %.ykmeans.gz %.ans %.yscode.gz

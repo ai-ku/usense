@@ -15,4 +15,4 @@ for line in gzip.open(sys.argv[1]):
         dic[m.group(1)][m.group(2)] += 1
 
 for k,v in dic.items():
-    print k, len(v)
+    print k+"\t"+str(len(v))
