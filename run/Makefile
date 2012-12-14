@@ -1,6 +1,7 @@
 ### PATH
 export NLTK_DATA=../data/wordnet
 export PATH := ../bin:${PATH}
+BIN_PATH=../bin/
 MATLAB_PATH=/mnt/opt/matlab/linux64/R2011a/bin/matlab -nojvm -nodisplay
 
 ## PARAMETERS
@@ -103,12 +104,12 @@ KM_OPTIONS=-k 200 -r 50 -s ${SEED} -v
 	getans.py  $<  $*.gz > $@
 
 %.eval: %.ans
-	java -jar fscore.jar $< ../evaluation/unsup_eval/keys/all.key n >$*.fn.eval
-	java -jar fscore.jar $< ../evaluation/unsup_eval/keys/all.key v > $*.fv.eval
-	java -jar fscore.jar $< ../evaluation/unsup_eval/keys/all.key all > $*.fa.eval
-	java -jar vmeasure.jar $< ../evaluation/unsup_eval/keys/all.key n >$*.vn.eval
-	java -jar vmeasure.jar $< ../evaluation/unsup_eval/keys/all.key v >$*.vv.eval
-	java -jar vmeasure.jar $< ../evaluation/unsup_eval/keys/all.key all >$*.va.eval
+	java -jar ${BIN_PATH}fscore.jar $< ../evaluation/unsup_eval/keys/all.key n >$*.fn.eval
+	java -jar ${BIN_PATH}fscore.jar $< ../evaluation/unsup_eval/keys/all.key v > $*.fv.eval
+	java -jar ${BIN_PATH}fscore.jar $< ../evaluation/unsup_eval/keys/all.key all > $*.fa.eval
+	java -jar ${BIN_PATH}vmeasure.jar $< ../evaluation/unsup_eval/keys/all.key n >$*.vn.eval
+	java -jar ${BIN_PATH}vmeasure.jar $< ../evaluation/unsup_eval/keys/all.key v >$*.vv.eval
+	java -jar ${BIN_PATH}vmeasure.jar $< ../evaluation/unsup_eval/keys/all.key all >$*.va.eval
 	tail -n 1 $*.*.eval > $@
 
 clean:

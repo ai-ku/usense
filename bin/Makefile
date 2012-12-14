@@ -1,4 +1,4 @@
-all: getdata.py fastsubs scode wordsub wkmeans dists runsc.m readsparse.mexa64
+all: getdata.py fastsubs scode wordsub wkmeans dists runsc.m readsparse.mexa64 fscore.jar vmeasure.jar
 
 getdata.py: check
 	test -e $@ || ln -s ../src/scripts/* .
@@ -25,6 +25,12 @@ runsc.m: check
 
 readsparse.mexa64:
 	test -e $@ || ln -s ../src/readsparse.mexa64
+
+fscore.jar:
+	test -e $@ || ln -s ../src/$@ .
+
+vmeasure.jar:
+	test -e $@ || ln -s ../src/$@ .
 
 check:
 	true
