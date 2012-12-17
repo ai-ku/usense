@@ -69,7 +69,7 @@ TRAIN_LM=../data/wsj.lm.gz
 
 ### WORDSUB 
 
-WORDSUB=1 # Number of random substitutes per word
+WORDSUB=12 # Number of random substitutes per word
 WS_OPTIONS=-n ${WORDSUB} -s ${SEED}
 
 %.pairs.gz: %.sub.gz ## WS_NSUB=64: time=20m55s wc=75121024 150242048 809663253
