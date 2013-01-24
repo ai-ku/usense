@@ -15,7 +15,9 @@ from scipy.sparse.linalg import svds
 import numpy as np
 from sklearn import cross_validation
 from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
 from sklearn.multiclass import OneVsRestClassifier
+from sklearn.grid_search import GridSearchCV
 import gzip
 
 CWD = os.getcwd()
@@ -189,37 +191,50 @@ def calc_dists():
             os.system(command)
             #exit()
 
+
+def grid_search(clf, X, y, parameters, cv, n_jobs=4):
+    model_tunning = GridSearchCV(clf, param_grid=parameters, cv=cv, n_jobs=n_jobs) 
+    model_tunning.fit(X, y)
+    #print model_tunning.best_score_
+    #print model_tunning.best_params_
+    return (model_tunning.best_params_, model_tunning.best_score_)
+
+
 def logistic_score(X, y, n_folds):
-
-
-    from sklearn.svm import SVC
 
     # weak check, #of instance should be equal with gold
     assert X.shape[0] == len(y)
+
     cv = cross_validation.KFold(len(y), n_folds=n_folds)
-    #clf = OneVsRestClassifier(SVC())
-    clf = OneVsRestClassifier(LogisticRegression(C=1))
-    scores = cross_validation.cross_val_score(clf, X, y, cv=cv, verbose=0, n_jobs=4)
+    clf = LogisticRegression()
+    #clf.verbose = 1
+    #clf.fit(X,y)
+
+    parameters = {"C": range(1, 2000, 10)}
+    best_param, best_score = grid_search(clf, X, y, parameters, cv, 4)
+
+    print best_param, best_score
+    #clf = LogisticRegression(C=best_param['C'])
+    #clf.fit(X,y)
+    #scores = cross_validation.cross_val_score(clf, X, y, cv=cv, verbose=0, n_jobs=4)
     #print scores.mean(), scores.std()
     #print clf
-    return scores.mean()
 
-    #parameters = {
-        #"estimator__C": [0.5, 1, 1.5, 2, 4],
-        #"estimator__kernel": ["rbf", 'poly'],
-        #"estimator__degree":[1, 2, 3, 4],
-    #}
 
     #from sklearn.grid_search import GridSearchCV
     #clf2 = OneVsRestClassifier(SVC())
     #model_tunning = GridSearchCV(clf2, param_grid=parameters, cv=cv, n_jobs=4) 
     #model_tunning.fit(X, y)
+    #print model_tunning.best_score_
+    #print model_tunning.best_params_
+    
     #if model_tunning.best_score_ - scores.mean() > 0.01:
         #print model_tunning.best_score_
         #print model_tunning.best_params_
 
     #print "####"
     
+    return best_score
 
 def run_logistic():
     temp = "temp"
