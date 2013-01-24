@@ -1,15 +1,13 @@
 ### PATH
-export NLTK_DATA=../data/wordnet
-export PATH := ../bin:${PATH}
-BIN_PATH=../bin/
-MATLAB_PATH=/mnt/opt/matlab/linux64/R2011a/bin/matlab -nojvm -nodisplay
-
-## PARAMETERS
-TEST_KEY=../data/test.key.gz
 TEST_DATA_PATH=../data/test_data/
-SEED=1
-
-### BIN SETUP
+export NLTK_DATA=../data/wordnet
+export bin
+TEST_KEY=../data/test.key.gz
+export PATH := ../bin:${PATH}
+SCRIPTS=../src/scripts
+BIN_PATH=../bin/
+MATLAB_PATH=/usr/local/MATLAB/R2012a/bin/matlab -nojvm -nodisplay
+###
 
 bin:
 	cd ../bin; make
@@ -27,32 +25,9 @@ test.ngram.gz: test.tok.gz
 test.pos.gz: test.gold.gz
 	zcat test.gold.gz | perl -lane 'print $$F[1]' | gzip > $@
 
-##Get gold cluster numbers
-test.nclu.gz: test.pos.gz
-	numbercluster.py $< | gzip > $@
-
 #Get word labels
 test.word.gz: test.gold.gz
-	zcat test.gold.gz | perl -lane 'print $$1 if /^(.*\.\w)\.\d+\s/;' | gzip > $@
-
-### DISTANCE METRICS
-
-KNN=10000
-NCPU=40
-#Manhattan
-DIS=2
-test.knn.gz: test.sub.gz  ## KNN=1000 KNN_METRIC=1 NCPU=24: time=21h40m, wc=1173766 2348705766 18877273290
-	zcat $< | preinput.py | dists -k ${KNN} -v -d ${DIS} -p ${NCPU} 2> knn${DIS}.err | gzip > $@ 
-
-## CLUSTERING
-
-%.spectral: %.knn.gz
-	${MATLAB_PATH} < ../bin/runsc.m > $*.spectral 2> $*.spectral.err
-	gzip $*.spectral.c*
-
-KM_OPTIONS=
-test.c%.kmeans.gz: test.spectral.c%.gz
-	zcat $< | wkmeans -k $* -r 5 -s ${SEED} -v | gzip > $@
+	zcat test.gold.gz | perl -lane 'print $$F[0]' | gzip > $@
 
 
 ### FASTSUBS options:
@@ -62,57 +37,58 @@ FS_OPTIONS=-n ${FS_NSUB} -p ${FS_PSUB}
 
 TRAIN_LM=../data/wsj.lm.gz
 
-%.sub.gz: %.ngram.gz ${TRAIN_LM} test.word.gz
-	zcat $< | fastsubs ${FS_OPTIONS} ${TRAIN_LM} | grep -P '^<X>\t' | cut -f2- | gzip > $@.tmp
-	zpaste test.word.gz $@.tmp > $@
-	rm $@.tmp
+%.sub.gz: %.ngram.gz ${TRAIN_LM}
+	zcat $< | fastsubs ${FS_OPTIONS} ${TRAIN_LM} | grep -P '^<X>\t' | gzip > $@
+	
+localize: test.sub.gz test.word.gz test.gold.gz
+	@rm -rf local gold
+	mkdir local gold
+	../src/scripts/localize.py
+	#../src/scripts/getdists.sh
 
-### WORDSUB 
+%.dist: %
+	# calculating distances examp: local.dist
+	rm -rf $@
+	-mkdir $@
+	../src/scripts/getdists.sh $* "*" #2>$@.err
 
-WORDSUB=12 # Number of random substitutes per word
-WS_OPTIONS=-n ${WORDSUB} -s ${SEED}
+%.knn: %.dist
+	../src/scripts/knn.sh $< "*"
 
-%.pairs.gz: %.sub.gz ## WS_NSUB=64: time=20m55s wc=75121024 150242048 809663253
-	perl -le 'print "$<" for 1..${WORDSUB}' | xargs zcat | grep -v '^</s>' | wordsub -s ${SEED} |gzip > $@
+	
+knn_exp_unweight:
+	rm -r ../results/knn_unw*
+	../src/scripts/knn_unweighted.sh
 
-### RPART options:[??del or comment out]
-RPART=2000 # Number of random partitions
-NTEST=8915
-RP_OPTIONS=-n ${NTEST} -p ${RPART} -s ${SEED}
+knn_exp:
+	#../src/scripts/knn_old.sh eski
+	../src/scripts/knn.sh local "*.[vn]"
 
-%.rpart.pairs.gz: %.knn.gz %.word.gz ## RPART=65536: time=2m55s wc=1173766 2347532 14694702
-	zcat $< | rpart.pl ${RP_OPTIONS} | join.pl $*.word.gz - | gzip > $@
+random_gold:
+	#gold tag sayisi kadar random secenek ile sonuc
+	find local/ -type f | grep .gold | sort | ${SCRIPTS}/knn-basescores.py > ../results/random
+	python ${SCRIPTS}/scores.py random
 
-### SCODE ###
-SC_OPTIONS=-r 1 -i 50 -d 25 -z 0.166 -p 50 -u 0.2 -s ${SEED} -v -e 1
+run.logistic:
+	../bin/scripts/usense.py -f run_logistic -i local/ -r "*" -n 10
 
-%.yscode.gz: %.pairs.gz 
-	zcat $< | scode ${SC_OPTIONS} | gzip > $@
+run.iso:
+	# some file removing needed
+	rm -rf iso/
+	-mkdir iso
+	iso.sh
+	#gzip $*.iso.c*
 
-KM_OPTIONS=-k 200 -r 50 -s ${SEED} -v
+run.pca:
+	rm -rf pca/
+	-mkdir pca
 
-%.kmeans.gz: %.yscode.gz	
-	zcat $< | perl -lane 'print join("\t",@F[0 .. 24])' | wkmeans ${KM_OPTIONS} | gzip > $@
-
-%.xykmeans.gz: %.yscode.gz
-	zcat $< | wkmeans ${KM_OPTIONS} | gzip > $@
-
-%.ykmeans.gz: %.yscode.gz	
-	zcat $< | perl -lane 'print join("\t",@F[25 .. $$#F])' | wkmeans ${KM_OPTIONS} | gzip > $@
-
-%.ans: test.gold.gz %.gz 
-	getans.py  $<  $*.gz > $@
-
-%.eval: %.ans
-	java -jar ${BIN_PATH}fscore.jar $< ../evaluation/unsup_eval/keys/all.key n >$*.fn.eval
-	java -jar ${BIN_PATH}fscore.jar $< ../evaluation/unsup_eval/keys/all.key v > $*.fv.eval
-	java -jar ${BIN_PATH}fscore.jar $< ../evaluation/unsup_eval/keys/all.key all > $*.fa.eval
-	java -jar ${BIN_PATH}vmeasure.jar $< ../evaluation/unsup_eval/keys/all.key n >$*.vn.eval
-	java -jar ${BIN_PATH}vmeasure.jar $< ../evaluation/unsup_eval/keys/all.key v >$*.vv.eval
-	java -jar ${BIN_PATH}vmeasure.jar $< ../evaluation/unsup_eval/keys/all.key all >$*.va.eval
-	tail -n 1 $*.*.eval > $@
+run.svd%:
+	#example: make run.svd10
+	@rm -rf svd$*
+	../bin/scripts/usense.py -f run_svd -i local/ -r "*" -o svd$* -k $*
 
 clean:
-	-rm test.tok.gz test.ngram.gz test.gold.gz test.word.gz test.sub.gz *ans *~
+	-rm -r test.tok.gz test.ngram.gz test.gold.gz test.word.gz test.sub.gz local/ *~
 
-.PRECIOUS: %.ans test.c%.kmeans.gz %.xykmeans.gz %.ykmeans.gz %.ans %.yscode.gz
+#.PHONY: iso

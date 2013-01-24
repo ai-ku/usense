@@ -1,38 +1,29 @@
-all: getdata.py fastsubs scode wordsub wkmeans dists runsc.m readsparse.mexa64 fscore.jar vmeasure.jar
+all: getdata.py fastsubs runiso.m readsparse.mexa64 runpca.m
 
 getdata.py: check
-	test -e $@ || ln -s ../src/scripts/* .
+	test -e $@ || ln -s ../src/scripts/*
 
 fastsubs:
 	test -e $@ || ln -s ../src/fastsubs .
 
-scode:
-	test -e $@ || ln -s ../src/scode .
+runiso.m: check
+	cd ../src/iso
+	test -e $@ || ln -s ../src/iso/runiso.m
+	test -e IsomapII.m || ln -s ../src/iso/IsomapII.m
+	test -e dijkstra.mexa64 || ln -s ../src/iso/dijkstra.mexa64
+	test -e dfun.m || ln -s ../src/iso/dfun.m
+	test -e L2_distance.m || ln -s ../src/iso/L2_distance.m
 
-wordsub:
-	test -e $@ || ln -s ../src/wordsub .
+runpca.m: check
+	cd ../src/pca
+	test -e $@ || ln -s ../src/pca/runpca.m
 
-wkmeans:
-	test -e $@ || ln -s ../src/wkmeans .
-
-dists:
-	test -e $@ || ln -s ../src/dists .
-
-runsc.m: check
-	cd ../src/spectral;
-	test -e $@ || ln -s ../src/spectral/runsc.m
-	test -e sc.m || ln -s ../src/spectral/sc.m
 
 readsparse.mexa64:
 	test -e $@ || ln -s ../src/readsparse.mexa64
 
-fscore.jar:
-	test -e $@ || ln -s ../src/$@ .
-
-vmeasure.jar:
-	test -e $@ || ln -s ../src/$@ .
-
 check:
 	true
+
 clean:
-	rm *py fastsubs *~ *pl
+	rm *py fastsubs
