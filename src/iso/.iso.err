@@ -1,0 +1,36 @@
+[?1h=
+                                            < M A T L A B (R) >
+                                  Copyright 1984-2012 The MathWorks, Inc.
+                                    R2012a (7.14.0.739) 64-bit (glnxa64)
+                                              February 9, 2012
+
+ 
+To get started, type one of these: helpwin, helpdesk, or demo.
+For product information, visit www.mathworks.com.
+ 
+{Warning: The RandStream.setDefaultStream static method will be removed in a future release.  Use
+RandStream.setGlobalStream instead.} 
+{> In RandStream.RandStream>RandStream.setDefaultStream at 456
+  In runiso at 3} 
+
+options = 
+
+        dims: [2 4 8 16]
+     overlay: 0
+        comp: 1
+     display: 0
+    dijkstra: 1
+     verbose: 1
+
+fname:<cat /home/tyr/playground/usense/run/local.dist/access.n.dist.1
+.row:48 col:48 nnz:2256(47)
+allnnz:2256
+Constructing neighborhood graph...
+Computing shortest paths...
+Constructing low-dimensional embeddings (Classical MDS)...
+  Checking for outliers...
+    Number of connected components in graph: 1
+    Embedding component 1 with 48 points.
+
+>> 
+>> 
