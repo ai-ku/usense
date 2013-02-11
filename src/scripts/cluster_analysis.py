@@ -10,6 +10,23 @@ from collections import defaultdict as dd
 
 PATH = '/home/tyr/playground/usense/'
 
+def calc_perp_from_arr(X):
+    
+    d = dict()
+    for tag in X:
+        if tag not in d.keys():
+            d[tag] = 1
+        else:
+            d[tag] += 1
+
+    total = len(X)
+    entropy = .0
+    for key in d.keys():
+        p = d[key] / total
+        entropy += -p * math.log(p, 2)
+
+    return 2 ** entropy
+
 def calc_perp(filename):
     lines = gzip.open(filename).readlines()
     d = dd(list)

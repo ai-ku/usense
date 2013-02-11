@@ -72,6 +72,11 @@ random_gold:
 run.logistic:
 	../bin/scripts/usense.py -f run_logistic -i local/ -r "*" -n 10
 
+run.svm:
+	../bin/scripts/usense.py -f run_svm -i local/ -r "*" -n 5
+	#../bin/scripts/usense.py -f run_svm -i svd10/ -r "*" -n 5
+	#../bin/scripts/usense.py -f run_svm -i iso/ -r "*dist.4.iso.c8" -n 5
+
 run.iso:
 	# some file removing needed
 	rm -rf iso/

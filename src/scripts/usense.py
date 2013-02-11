@@ -17,7 +17,9 @@ from sklearn import cross_validation
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.multiclass import OneVsRestClassifier
+from cluster_analysis import calc_perp_from_arr
 from sklearn.grid_search import GridSearchCV
+import sklearn.preprocessing
 import gzip
 
 CWD = os.getcwd()
@@ -157,7 +159,7 @@ def check_dest(dest):
 ### Important Functions ###
 
 
-func_list = ['calc_dists', 'run_svd', 'run_logistic']
+func_list = ['calc_dists', 'run_svd', 'run_logistic', 'run_svm']
 
 def calc_dists():
     """../bin/scripts/calcdists.py -f calc_dists -i 
@@ -192,51 +194,31 @@ def calc_dists():
             #exit()
 
 
-def grid_search(clf, X, y, parameters, cv, n_jobs=4):
+def grid_search(clf, X, y, parameters, cv=None, n_jobs=4):
     model_tunning = GridSearchCV(clf, param_grid=parameters, cv=cv, n_jobs=n_jobs) 
+    #model_tunning = GridSearchCV(clf, param_grid=parameters, verbose=3, n_jobs=n_jobs) 
+    #print model_tunning
     model_tunning.fit(X, y)
     #print model_tunning.best_score_
-    #print model_tunning.best_params_
+    print model_tunning.best_params_
     return (model_tunning.best_params_, model_tunning.best_score_)
 
 
-def logistic_score(X, y, n_folds):
+def svm_score(X, y, n_folds):
 
-    # weak check, #of instance should be equal with gold
+    # weak check, #of instance should be equalwith gold
     assert X.shape[0] == len(y)
-
-    cv = cross_validation.KFold(len(y), n_folds=n_folds)
-    clf = LogisticRegression()
-    #clf.verbose = 1
-    #clf.fit(X,y)
-
-    parameters = {"C": range(1, 2000, 10)}
-    best_param, best_score = grid_search(clf, X, y, parameters, cv, 4)
-
-    print best_param, best_score
-    #clf = LogisticRegression(C=best_param['C'])
-    #clf.fit(X,y)
-    #scores = cross_validation.cross_val_score(clf, X, y, cv=cv, verbose=0, n_jobs=4)
-    #print scores.mean(), scores.std()
-    #print clf
-
-
-    #from sklearn.grid_search import GridSearchCV
-    #clf2 = OneVsRestClassifier(SVC())
-    #model_tunning = GridSearchCV(clf2, param_grid=parameters, cv=cv, n_jobs=4) 
-    #model_tunning.fit(X, y)
-    #print model_tunning.best_score_
-    #print model_tunning.best_params_
-    
-    #if model_tunning.best_score_ - scores.mean() > 0.01:
-        #print model_tunning.best_score_
-        #print model_tunning.best_params_
-
-    #print "####"
-    
+    y = np.asarray(y)
+    #cv = cross_validation.KFold(len(y), n_folds=n_folds)
+    cv = cross_validation.StratifiedKFold(y, n_folds=n_folds)
+    #print cv
+    clf = SVC()
+    parameters = {'kernel':('rbf', 'linear'), 'C': np.logspace(-5,15,10), 'gamma': np.logspace(-15, 3, 10)}
+    best_param, best_score = grid_search(clf, X, y, parameters, cv, 3)
+    #print best_param
     return best_score
 
-def run_logistic():
+def run_svm():
     temp = "temp"
     if os.path.isdir(temp):
         shutil.rmtree(temp)
@@ -247,39 +229,43 @@ def run_logistic():
     n_folds = int(opts.n_folds)
 
     files = get_files(inpath, regex)
+    files.sort()
 
     start = 1
     scores = []
     if  'local' in inpath:
         start = 0 
     for fn in files:
+        #print fn
 
-        # b
-        #if fn in ['separate.v', 'deploy.v', 'sniff.v']:
+        #words = ['accommodate.v', 'display.n', 'bow.v', 'haunt.v', 'owe.v', ]
+        #if fn not in words:
             #continue
-        if fn not in ['accommodate.v', 'display.n', 'bow.v', 'haunt.v', 'owe.v',
-                        ]:
+
+        if fn in ['mind.n', 'reap.v', 'swim.v']:
             continue
-        #if fn != 'weigh.v':
+        
+        #if fn in ['reap.v', 'swim.v']:
             #continue
-        # e
 
+        #if fn not in ['bow.v']:
+            #continue
         #print >> sys.stderr, fn
         fulln = os.path.join(inpath, fn)
         command = "cat %s | ../bin/scripts/preinput.py > %s/%s.preinp" %(fulln, temp, fn)
         os.system(command)
         mat = read2sparse("%s/%s.preinp" % (temp, fn), start)
+        #mat = sklearn.preprocessing.scale(mat.toarray())
         gold = get_goldtag(fn + '.gold')
         
         ## b
         #create_arff(fn, mat, gold)
         #continue
         ## e
-        score = logistic_score(mat.todense(), gold, n_folds)
-        print fn, score
+        score = svm_score(mat, gold, n_folds)
+        print '{0}\t{1}\t{2}'.format(fn, score, calc_perp_from_arr(gold))
         scores.append(score)
     print sum(scores) / len(scores)
-
     shutil.rmtree(temp)
 
 def get_svd(mat, k):
@@ -307,6 +293,7 @@ def run_svd():
 
     check_dest(dest) # prepare destination directory
     files = get_files(inpath, regex)
+    files.sort()
     for fn in files:
         print >> sys.stderr, fn
         fulln = os.path.join(inpath, fn)
