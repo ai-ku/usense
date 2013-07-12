@@ -61,15 +61,21 @@ FS_PSUB=1.0 # or this much cumulative probability
 FS_OPTIONS=-n ${FS_NSUB} -p ${FS_PSUB}
 
 TRAIN_LM=../data/wsj.lm.gz
+#TRAIN_LM=train.lm.gz
+
+#train.lm.gz:
+	#rm -rf train.lm.gz
+	#ln -s ../../task13/run/train.lm.gz train.lm.gz
+	#wait
 
 %.sub.gz: %.ngram.gz ${TRAIN_LM} test.word.gz
 	zcat $< | fastsubs ${FS_OPTIONS} ${TRAIN_LM} | grep -P '^<X>\t' | cut -f2- | gzip > $@.tmp
-	zpaste test.word.gz $@.tmp > $@
+	zpaste.py test.word.gz $@.tmp > $@
 	rm $@.tmp
 
 ### WORDSUB 
 
-WORDSUB=12 # Number of random substitutes per word
+WORDSUB=100 # Number of random substitutes per word
 WS_OPTIONS=-n ${WORDSUB} -s ${SEED}
 
 %.pairs.gz: %.sub.gz ## WS_NSUB=64: time=20m55s wc=75121024 150242048 809663253
