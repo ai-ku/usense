@@ -60,13 +60,8 @@ FS_NSUB=100 # go until you have this many substitutes
 FS_PSUB=1.0 # or this much cumulative probability
 FS_OPTIONS=-n ${FS_NSUB} -p ${FS_PSUB}
 
-TRAIN_LM=../data/wsj.lm.gz
-#TRAIN_LM=train.lm.gz
-
-#train.lm.gz:
-	#rm -rf train.lm.gz
-	#ln -s ../../task13/run/train.lm.gz train.lm.gz
-	#wait
+#TRAIN_LM=../data/wsj.lm.gz
+TRAIN_LM=train.lm.gz
 
 %.sub.gz: %.ngram.gz ${TRAIN_LM} test.word.gz
 	zcat $< | fastsubs ${FS_OPTIONS} ${TRAIN_LM} | grep -P '^<X>\t' | cut -f2- | gzip > $@.tmp
