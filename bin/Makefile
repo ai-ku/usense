@@ -32,6 +32,9 @@ fscore.jar:
 vmeasure.jar:
 	test -e $@ || ln -s ../src/$@ .
 
+ssp.jar:
+	test -e $@ || ln -s ../src/$@ .
+
 check:
 	true
 clean:

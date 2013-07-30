@@ -5,6 +5,7 @@ BIN_PATH=../bin/
 MATLAB_PATH=/mnt/opt/matlab/linux64/R2011a/bin/matlab -nojvm -nodisplay
 TEST_NOUN=$(shell find ../data/training_data/nouns -name "*.xml" | sort)
 TEST_VERB=$(shell find ../data/training_data/verbs -name "*.xml" | sort)
+GOLD_ALL=../evaluation/unsup_eval/keys/all.key
 
 
 ## PARAMETERS
@@ -89,9 +90,9 @@ RP_OPTIONS=-n ${NTEST} -p ${RPART} -s ${SEED}
 	zcat $< | rpart.pl ${RP_OPTIONS} | join.pl $*.word.gz - | gzip > $@
 
 ### SCODE ###
-SC_OPTIONS=-r 1 -i 50 -d 25 -z 0.166 -p 50 -u 0.2 -s ${SEED} -v -e 1
+SC_OPTIONS=-a -r 1 -d 25 -z 0.166 -p 50 -u 0.2 -s ${SEED} -v
 
-%.scode.gz: %.pairs.gz 
+%.scode.gz: %.pairs.100.gz 
 	zcat $< | scode ${SC_OPTIONS} | gzip > $@
 
 KM_OPTIONS=-k 200 -r 50 -s ${SEED} -v
@@ -140,6 +141,8 @@ pairs.100.gz: #target.sub.gz
 test.pairs.gz: pairs.100.gz
 	zcat $< | grep -P "^<\w+\..\.\d{1,3}>" | gzip > $@
 
+### HDP EXPERIMENTS ###
+
 TEST_WORDS=$(shell ls ../data/test_data/* | grep '.xml' | sed 's/.xml//g' | sort)
 NSAMPLE=1000
 hdp-input-create: test.pairs.gz #target.sub.gz
@@ -148,43 +151,88 @@ hdp-input-create: test.pairs.gz #target.sub.gz
 num_test_instances.all.txt: hdp-wsi/ ./test-inst-num-usense.py
 	test-inst-num-usense.py > hdp-wsi/wsi_input/example/$@
 
-# main experiment target
-#hdp.exp-%: hdp-wsi/run_wsi.sh ./hdp-topics-stat.py eval/ ./nlp_utils.py
-	#cd hdp-wsi/; ./run_wsi.sh; wait
-	#cp hdp-wsi/wsi_output/tm_wsi eval/$@.ans
-	#cp hdp-wsi/wsi_output/tm_wsi.topics eval/$@.topics
-	#./hdp-topics-stat.py $@.ans > eval/$@.dist
-	#wait
-
 # alpha experiment
-hdp.exp-alpha-%: hdp-wsi/run_wsi.sh ./hdp-topics-stat.py eval/ ./nlp_utils.py
+eval/hdp.exp-alpha-%.ans: 
 	cd hdp-wsi/; ./run_wsi.sh 0.1 $*; wait
-	cp hdp-wsi/wsi_output/tm_wsi eval/$@.ans
-	cp hdp-wsi/wsi_output/tm_wsi.topics eval/$@.topics
-	./hdp-topics-stat.py $@.ans > eval/$@.dist
+	cp hdp-wsi/wsi_output/tm_wsi $@
+	cp hdp-wsi/wsi_output/tm_wsi.topics eval/hdp.exp-alpha-$*.topics
 	wait
 
 # gamma experiment
-hdp.exp-gamma-%: hdp-wsi/run_wsi.sh ./hdp-topics-stat.py eval/ ./nlp_utils.py
+eval/hdp.exp-gamma-%.ans:
 	cd hdp-wsi/; ./run_wsi.sh $* 1; wait
-	cp hdp-wsi/wsi_output/tm_wsi eval/$@.ans
-	cp hdp-wsi/wsi_output/tm_wsi.topics eval/$@.topics
-	./hdp-topics-stat.py $@.ans > eval/$@.dist
+	cp hdp-wsi/wsi_output/tm_wsi $@
+	cp hdp-wsi/wsi_output/tm_wsi.topics eval/hdp.exp-gamma-$*.topics
 	wait
 
+hdp-input-stats.tab:
+	for tw in ${TEST_WORDS}; do\
+		cat input-hdp-test/$$tw.lemma  | awk '{print $$0 "<sentence>"}' |\
+		../bin/tree-tagger/cmd/tree-tagger-english | ./hdp-vocab-stat.py $$tw >> $@;\
+		wait;\
+	done
 
-eval.%: eval/%.ans
-	#java -jar ${BIN_PATH}fscore.jar $< ../evaluation/unsup_eval/keys/all.key n >$*.fn.eval
-	#java -jar ${BIN_PATH}fscore.jar $< ../evaluation/unsup_eval/keys/all.key v > $*.fv.eval
-	java -jar ${BIN_PATH}fscore.jar $< ../evaluation/unsup_eval/keys/all.key all > eval/$*.fa.eval
-	#java -jar ${BIN_PATH}vmeasure.jar $< ../evaluation/unsup_eval/keys/all.key n >$*.vn.eval
-	#java -jar ${BIN_PATH}vmeasure.jar $< ../evaluation/unsup_eval/keys/all.key v >$*.vv.eval
-	java -jar ${BIN_PATH}vmeasure.jar $< ../evaluation/unsup_eval/keys/all.key all > eval/$*.va.eval
-	tail -n 1 eval/$*.*.eval > eval/$*.scores
+### POS-BASED EXPERIMENTS ###
+
+sampled.train.tok.gz sampled.train.pos.gz sampled.train.lemma.gz: train.tok.gz \
+	train.pos.gz train.lemma.gz sample-lines.py
+	./sample-lines.py ${SEED} 80000 train.tok.gz train.pos.gz train.lemma.gz
+
+global.sub1.gz global.sub2.gz: sampled.train.tok.gz # train.lm.gz
+	zcat sampled.train.tok.gz | tail -n +00001 | head -20000 |\
+	fastsubs ${FS_OPTIONS} train.lm.gz | gzip > global.sub1.gz &\
+	zcat sampled.train.tok.gz | tail -n +20001 | head -20000 |\
+	fastsubs ${FS_OPTIONS} train.lm.gz | gzip > global.sub2.gz &\
+	wait
+
+global.sub3.gz global.sub4.gz: sampled.train.tok.gz
+	zcat sampled.train.tok.gz | tail -n +40001 | head -20000 |\
+	fastsubs ${FS_OPTIONS} train.lm.gz | gzip > global.sub3.gz &\
+	zcat sampled.train.tok.gz | tail -n +60001 | \
+	fastsubs ${FS_OPTIONS} train.lm.gz | gzip > global.sub4.gz &\
+	wait
+
+global.sub.gz: #global.sub1.gz global.sub2.gz global.sub3.gz global.sub4.gz
+	zcat $^ | grep -v -P '^</s>' | gzip > $@
+
+verb.sub.gz noun.sub.gz: global.sub.gz
+	zcat $< | ./split-vnj.py sampled.train.lemma.gz sampled.train.pos.gz 
+
+verb.pairs.100.gz: verb.sub.gz pairs.100.gz
+	perl -le 'print "$<" for 1..100' | xargs zcat | wordsub -s ${SEED} > $@.tmp
+	zcat pairs.100.gz | grep -P "^<\w+\.v\.\d{1,3}>" >> $@.tmp
+	cat $@.tmp | gzip > $@
+	rm -rf $@.tmp
+
+noun.pairs.100.gz: noun.sub.gz pairs.100.gz
+	perl -le 'print "$<" for 1..100' | xargs zcat | wordsub -s ${SEED} > $@.tmp
+	zcat pairs.100.gz | grep -P "^<\w+\.n\.\d{1,3}>" >> $@.tmp
+	cat $@.tmp | gzip > $@
+	rm -rf $@.tmp
+
+%.scode.pos.gz: %.pairs.100.gz
+	zcat $< | scode -i 50 ${SC_OPTIONS} | gzip > $@
+
+pos-cluster-test: noun.scode.pos.gz verb.scode.pos.gz
+	./y-cluster-pos-test.py ${SEED} 350 400 450 500 #4 8 16 24 32 40 60 70 80 100 120 150 180 210
+
+eval/pos.%.ans: eval/noun.%.ans eval/verb.%.ans
+	cat $^ > $@
+	wc $@
+
+eval/%.scores: eval/%.ans
+	java -jar ${BIN_PATH}ssp.jar -s ${GOLD_ALL} $< > eval/$*.ssp.eval
+	java -jar ${BIN_PATH}fscore.jar eval/$*.ans ${GOLD_ALL} all > eval/$*.fa.eval
+	java -jar ${BIN_PATH}vmeasure.jar eval/$*.ans ${GOLD_ALL}  all > eval/$*.va.eval
+	tail -n 2 eval/$*.*.eval > $@
+	cat $@
+	./topics-stat.py $< > eval/$*.dist
+	tail -3 eval/$*.dist
 	rm -rf eval/*.eval
-	cat eval/$*.scores
 
 clean:
 	-rm test.tok.gz test.ngram.gz test.gold.gz test.word.gz test.sub.gz *ans *~
 
-.PRECIOUS: %.ans test.c%.kmeans.gz %.xykmeans.gz %.ykmeans.gz %.ans %.yscode.gz train.sub.gz
+.PRECIOUS: %.ans test.c%.kmeans.gz %.xykmeans.gz %.ykmeans.gz %.ans %.yscode.gz \
+	train.sub.gz
+.SECONDARY:

@@ -13,5 +13,5 @@ alphas = map(int, np.linspace(1, 30, 10))
 print alphas
 
 for a in  alphas[1:]:
-    command = "make hdp.exp-alpha-{}".format(a)
+    command = "make eval/hdp.exp-alpha-{}.scores".format(a)
     os.system(command)
